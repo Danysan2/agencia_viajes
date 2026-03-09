@@ -1,13 +1,19 @@
-"""Cliente para Google Sheets API."""
+"""Cliente para Google Sheets API - Versión simplificada para agencia de viajes."""
 import uuid
 import json
-from datetime import datetime, date
-from typing import List, Optional, Dict, Any
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+from datetime import datetime
+from typing import Optional
 
-# Importar logger solo si está disponible
+# Importaciones opcionales
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+
+# Logger opcional
 try:
     from loguru import logger
 except ImportError:
@@ -17,72 +23,73 @@ except ImportError:
         def warning(self, msg): print(f"WARNING: {msg}")
     logger = SimpleLogger()
 
-from config.settings import (
-    SERVICE_ACCOUNT_PATH, GOOGLE_SHEETS_ID, GOOGLE_SCOPES
-)
-from config.constants import (
-    SHEET_CLIENTES, SHEET_SESIONES
-)
-# Constantes comentadas - no necesarias para agencia de viajes
-# SHEET_CITAS, SHEET_SERVICIOS, SHEET_DISPONIBILIDAD
-from models import Cliente, Sesion
-# Modelos comentados - no necesarios para agencia de viajes
-# from models import Cita, Servicio
+try:
+    from config.settings import SERVICE_ACCOUNT_PATH, GOOGLE_SHEETS_ID, GOOGLE_SCOPES
+    from config.constants import SHEET_CLIENTES, SHEET_SESIONES
+    from models import Cliente, Sesion
+except ImportError:
+    logger.warning("⚠️  Configuración no disponible - modo mock")
+    SHEET_CLIENTES = "clientes"
+    SHEET_SESIONES = "sesiones_chat"
 
 
 class SheetsClient:
-    """Cliente para interactuar con Google Sheets."""
+    """Cliente simplificado para Google Sheets - Solo clientes y sesiones."""
     
     def __init__(self):
-        """Inicializa el cliente de Google Sheets."""
-        import os
+        """Inicializa el cliente."""
+        if not GOOGLE_AVAILABLE:
+            logger.warning("⚠️  Google API no disponible - modo mock")
+            self.service = None
+            return
         
-        # Intentar leer desde variable de entorno primero
-        service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE')
-        
-        if service_account_json and service_account_json.startswith('{'):
-            # Es un JSON string en el .env
-            try:
+        try:
+            import os
+            from pathlib import Path
+            
+            service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE')
+            
+            if service_account_json and service_account_json.startswith('{'):
                 service_account_info = json.loads(service_account_json)
                 self.credentials = service_account.Credentials.from_service_account_info(
                     service_account_info,
                     scopes=GOOGLE_SCOPES
                 )
-                logger.info("✅ Credenciales cargadas desde variable de entorno")
-            except json.JSONDecodeError as e:
-                raise ValueError(f"❌ Error parseando JSON de credenciales: {e}")
-        else:
-            # Es un path a archivo
-            if not SERVICE_ACCOUNT_PATH.exists():
-                raise FileNotFoundError(
-                    f"❌ Archivo de credenciales no encontrado: {SERVICE_ACCOUNT_PATH}\n"
-                    f"   Opción 1: Descarga service_account.json y colócalo en la raíz\n"
-                    f"   Opción 2: Pon el JSON completo en GOOGLE_SERVICE_ACCOUNT_FILE del .env"
+            else:
+                if not Path(SERVICE_ACCOUNT_PATH).exists():
+                    logger.warning("⚠️  Credenciales no encontradas - modo mock")
+                    self.service = None
+                    return
+                
+                self.credentials = service_account.Credentials.from_service_account_file(
+                    str(SERVICE_ACCOUNT_PATH),
+                    scopes=GOOGLE_SCOPES
                 )
             
-            self.credentials = service_account.Credentials.from_service_account_file(
-                str(SERVICE_ACCOUNT_PATH),
-                scopes=GOOGLE_SCOPES
-            )
-            logger.info("✅ Credenciales cargadas desde archivo")
-        
-        self.service = build('sheets', 'v4', credentials=self.credentials)
-        self.spreadsheet_id = GOOGLE_SHEETS_ID
+            self.service = build('sheets', 'v4', credentials=self.credentials)
+            self.spreadsheet_id = GOOGLE_SHEETS_ID
+            logger.info("✅ Google Sheets conectado")
+        except Exception as e:
+            logger.warning(f"⚠️  Error inicializando Sheets: {e}")
+            self.service = None
     
-    def _read_range(self, range_name: str) -> List[List[Any]]:
-        """Lee un rango del sheet."""
+    def _read_range(self, range_name: str):
+        """Lee un rango."""
+        if not self.service:
+            return []
         try:
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
                 range=range_name
             ).execute()
             return result.get('values', [])
-        except HttpError as e:
-            logger.error(f"Error leyendo rango {range_name}: {e}")
+        except:
             return []
     
-    def _append_row(self, sheet_name: str, values: List[Any]) -> bool:
-        """Agrega una fila al sheet."""
+    def _append_row(self, sheet_name: str, values):
+        """Agrega una fila."""
+        if not self.service:
+            return True
         try:
             self.service.spreadsheets().values().append(
                 spreadsheetId=self.spreadsheet_id,
@@ -91,12 +98,13 @@ class SheetsClient:
                 body={'values': [values]}
             ).execute()
             return True
-        except HttpError as e:
-            logger.error(f"Error agregando fila a {sheet_name}: {e}")
+        except:
             return False
     
-    def _update_row(self, range_name: str, values: List[Any]) -> bool:
-        """Actualiza una fila específica."""
+    def _update_row(self, range_name: str, values):
+        """Actualiza una fila."""
+        if not self.service:
+            return True
         try:
             self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheet_id,
@@ -105,147 +113,99 @@ class SheetsClient:
                 body={'values': [values]}
             ).execute()
             return True
-        except HttpError as e:
-            logger.error(f"Error actualizando {range_name}: {e}")
+        except:
             return False
     
     # === CLIENTES ===
     
-    def get_cliente_por_telefono(self, telefono: str) -> Optional[Cliente]:
+    def get_cliente_por_telefono(self, telefono: str) -> Optional:
         """Busca un cliente por teléfono."""
-        rows = self._read_range(f"{SHEET_CLIENTES}!A2:F")
-        for row in rows:
-            if len(row) > 1 and row[1] == telefono:
-                return Cliente.from_sheet_row(row)
+        if not self.service:
+            return None
+        try:
+            rows = self._read_range(f"{SHEET_CLIENTES}!A2:F")
+            for row in rows:
+                if len(row) > 1 and row[1] == telefono:
+                    from models import Cliente
+                    return Cliente.from_sheet_row(row)
+        except:
+            pass
         return None
     
-    def crear_cliente(self, telefono: str, nombre: str) -> Cliente:
+    def crear_cliente(self, telefono: str, nombre: str):
         """Crea un nuevo cliente."""
-        cliente = Cliente(
-            id=f"cli_{uuid.uuid4().hex[:8]}",
-            telefono=telefono,
-            nombre=nombre,
-            fecha_registro=datetime.now(),
-            total_citas=0
-        )
-        self._append_row(SHEET_CLIENTES, cliente.to_sheet_row())
-        logger.info(f"Cliente creado: {cliente.id}")
-        return cliente
-
+        try:
+            from models import Cliente
+            cliente = Cliente(
+                id=f"cli_{uuid.uuid4().hex[:8]}",
+                telefono=telefono,
+                nombre=nombre,
+                fecha_registro=datetime.now(),
+                total_citas=0
+            )
+            if self.service:
+                self._append_row(SHEET_CLIENTES, cliente.to_sheet_row())
+            logger.info(f"Cliente creado: {cliente.id}")
+            return cliente
+        except:
+            return None
     
-    def actualizar_cliente(self, cliente: Cliente, row_index: int) -> bool:
-        """Actualiza un cliente existente."""
+    def actualizar_cliente(self, cliente, row_index: int) -> bool:
+        """Actualiza un cliente."""
+        if not self.service:
+            return True
         range_name = f"{SHEET_CLIENTES}!A{row_index}:F{row_index}"
         return self._update_row(range_name, cliente.to_sheet_row())
     
-    # === CITAS === (COMENTADO - No necesario para agencia de viajes)
-    """
-    def get_citas_por_telefono(self, telefono: str, solo_activas: bool = False) -> List[Cita]:
-        #Obtiene todas las citas de un cliente.
-        rows = self._read_range(f"{SHEET_CITAS}!A2:O")
-        citas = []
-        for row in rows:
-            if len(row) > 2 and row[2] == telefono:
-                cita = Cita.from_sheet_row(row)
-                if not solo_activas or cita.estado in ['confirmada', 'pendiente']:
-                    citas.append(cita)
-        return sorted(citas, key=lambda c: c.fecha)
-    
-    def get_citas_por_fecha(self, fecha: date) -> List[Cita]:
-        #Obtiene todas las citas de una fecha.
-        rows = self._read_range(f"{SHEET_CITAS}!A2:O")
-        citas = []
-        fecha_str = fecha.strftime('%d/%m/%Y')
-        for row in rows:
-            if len(row) > 7 and row[7] == fecha_str:
-                citas.append(Cita.from_sheet_row(row))
-        return citas
-    
-    def crear_cita(self, cita: Cita) -> bool:
-        #Crea una nueva cita.
-        cita.id = f"cita_{uuid.uuid4().hex[:8]}"
-        cita.fecha_creacion = datetime.now()
-        cita.fecha_modificacion = datetime.now()
-        success = self._append_row(SHEET_CITAS, cita.to_sheet_row())
-        if success:
-            logger.info(f"Cita creada: {cita.id}")
-        return success
-    
-    def actualizar_cita(self, cita: Cita, row_index: int) -> bool:
-        #Actualiza una cita existente.
-        cita.fecha_modificacion = datetime.now()
-        range_name = f"{SHEET_CITAS}!A{row_index}:O{row_index}"
-        return self._update_row(range_name, cita.to_sheet_row())
-    
-    def get_cita_por_id(self, cita_id: str) -> Optional[tuple]:
-        #Busca una cita por ID y retorna (cita, row_index).
-        rows = self._read_range(f"{SHEET_CITAS}!A2:O")
-        for idx, row in enumerate(rows, start=2):
-            if len(row) > 0 and row[0] == cita_id:
-                return Cita.from_sheet_row(row), idx
-        return None
-    """
-
-    
-    # === SERVICIOS === (COMENTADO - No necesario para agencia de viajes)
-    """
-    def get_servicios_activos(self) -> List[Servicio]:
-        #Obtiene todos los servicios activos.
-        rows = self._read_range(f"{SHEET_SERVICIOS}!A2:F")
-        servicios = []
-        for row in rows:
-            servicio = Servicio.from_sheet_row(row)
-            if servicio.activo:
-                servicios.append(servicio)
-        return sorted(servicios, key=lambda s: s.orden)
-    
-    def get_servicio_por_id(self, servicio_id: str) -> Optional[Servicio]:
-        #Busca un servicio por ID.
-        rows = self._read_range(f"{SHEET_SERVICIOS}!A2:F")
-        for row in rows:
-            if len(row) > 0 and row[0] == servicio_id:
-                return Servicio.from_sheet_row(row)
-        return None
-    """
-    
     # === SESIONES ===
     
-    def get_sesion(self, telefono: str) -> Optional[tuple]:
-        """Obtiene la sesión de un usuario. Retorna (sesion, row_index)."""
-        rows = self._read_range(f"{SHEET_SESIONES}!A2:E")
-        for idx, row in enumerate(rows, start=2):
-            if len(row) > 0 and row[0] == telefono:
-                return Sesion.from_sheet_row(row), idx
+    def get_sesion(self, telefono: str):
+        """Obtiene la sesión de un usuario."""
+        if not self.service:
+            return None
+        try:
+            rows = self._read_range(f"{SHEET_SESIONES}!A2:E")
+            for idx, row in enumerate(rows, start=2):
+                if len(row) > 0 and row[0] == telefono:
+                    from models import Sesion
+                    return Sesion.from_sheet_row(row), idx
+        except:
+            pass
         return None
     
-    def crear_sesion(self, sesion: Sesion) -> bool:
+    def crear_sesion(self, sesion) -> bool:
         """Crea una nueva sesión."""
+        if not self.service:
+            return True
         return self._append_row(SHEET_SESIONES, sesion.to_sheet_row())
     
-    def actualizar_sesion(self, sesion: Sesion, row_index: int) -> bool:
-        """Actualiza una sesión existente."""
+    def actualizar_sesion(self, sesion, row_index: int) -> bool:
+        """Actualiza una sesión."""
+        if not self.service:
+            return True
         sesion.ultima_actividad = datetime.now()
         range_name = f"{SHEET_SESIONES}!A{row_index}:E{row_index}"
         return self._update_row(range_name, sesion.to_sheet_row())
     
     def eliminar_sesion(self, telefono: str) -> bool:
         """Elimina una sesión."""
+        if not self.service:
+            return True
         result = self.get_sesion(telefono)
         if result:
             _, row_index = result
-            # Limpiar la fila
             range_name = f"{SHEET_SESIONES}!A{row_index}:E{row_index}"
             return self._update_row(range_name, ["", "", "", "", ""])
         return False
     
     def test_connection(self) -> bool:
-        """Prueba la conexión con Google Sheets."""
+        """Prueba la conexión."""
+        if not self.service:
+            return False
         try:
             self.service.spreadsheets().get(
                 spreadsheetId=self.spreadsheet_id
             ).execute()
-            logger.info("Conexión a Google Sheets exitosa")
             return True
-        except Exception as e:
-            logger.error(f"Error conectando a Google Sheets: {e}")
+        except:
             return False

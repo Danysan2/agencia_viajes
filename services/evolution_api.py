@@ -1,7 +1,16 @@
 """Cliente para Evolution API."""
 import requests
 from typing import Optional, Dict, Any
-from loguru import logger
+
+# Logger opcional
+try:
+    from loguru import logger
+except ImportError:
+    class SimpleLogger:
+        def info(self, msg): print(f"INFO: {msg}")
+        def error(self, msg): print(f"ERROR: {msg}")
+        def warning(self, msg): print(f"WARNING: {msg}")
+    logger = SimpleLogger()
 
 from config.settings import (
     EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME

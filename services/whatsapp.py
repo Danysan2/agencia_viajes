@@ -1,6 +1,15 @@
 """Servicio de mensajería WhatsApp."""
 from typing import Optional
-from loguru import logger
+
+# Logger opcional
+try:
+    from loguru import logger
+except ImportError:
+    class SimpleLogger:
+        def info(self, msg): print(f"INFO: {msg}")
+        def error(self, msg): print(f"ERROR: {msg}")
+        def warning(self, msg): print(f"WARNING: {msg}")
+    logger = SimpleLogger()
 
 from .evolution_api import EvolutionAPI
 
