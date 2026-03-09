@@ -1,48 +1,49 @@
-"""Validaciones para el chatbot."""
+"""Funciones de validación para el chatbot."""
 import re
-from datetime import date, time
 
 
-def validar_telefono(telefono: str) -> bool:
-    """Valida que el teléfono sea válido."""
-    # Remover caracteres no numéricos
-    telefono_limpio = re.sub(r'\D', '', telefono)
-    return 10 <= len(telefono_limpio) <= 13
-
-
-def validar_nombre(nombre: str) -> bool:
-    """Valida que el nombre sea válido."""
-    if len(nombre) < 2:
-        return False
-    # Solo letras, espacios y algunos caracteres especiales
-    return bool(re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$', nombre))
-
-
-def validar_opcion_numerica(opcion: str, max_opciones: int) -> bool:
-    """Valida que la opción sea un número válido."""
+def validar_opcion_numerica(mensaje: str, max_opcion: int) -> bool:
+    """
+    Valida que el mensaje sea un número válido dentro del rango.
+    
+    Args:
+        mensaje: Mensaje del usuario
+        max_opcion: Número máximo de opciones válidas
+    
+    Returns:
+        True si es válido, False en caso contrario
+    """
     try:
-        num = int(opcion)
-        return 1 <= num <= max_opciones
+        opcion = int(mensaje.strip())
+        return 1 <= opcion <= max_opcion
     except ValueError:
         return False
 
 
-def validar_confirmacion(texto: str) -> bool:
-    """Valida si el texto es una confirmación positiva."""
-    texto_lower = texto.lower().strip()
-    confirmaciones = ['si', 'sí', 'yes', 'confirmar', 'confirmo', 'ok', 'vale']
-    return texto_lower in confirmaciones
+def validar_comando_menu(mensaje: str) -> bool:
+    """
+    Valida si el mensaje es un comando para volver al menú.
+    
+    Args:
+        mensaje: Mensaje del usuario
+    
+    Returns:
+        True si es un comando de menú
+    """
+    comandos = ['menu', 'menú', 'inicio', 'hola', 'volver', 'start']
+    return mensaje.strip().lower() in comandos
 
 
-def validar_cancelacion(texto: str) -> bool:
-    """Valida si el texto es una cancelación."""
-    texto_lower = texto.lower().strip()
-    cancelaciones = ['no', 'cancelar', 'cancelo', 'nop', 'nope']
-    return texto_lower in cancelaciones
-
-
-def validar_comando_menu(texto: str) -> bool:
-    """Valida si el texto es un comando para volver al menú."""
-    texto_lower = texto.lower().strip()
-    comandos = ['menu', 'inicio', 'hola', 'start', 'empezar']
-    return texto_lower in comandos
+def validar_nombre(mensaje: str) -> bool:
+    """
+    Valida que el mensaje sea un nombre válido.
+    
+    Args:
+        mensaje: Mensaje del usuario
+    
+    Returns:
+        True si es un nombre válido
+    """
+    # Solo letras y espacios, mínimo 2 caracteres
+    patron = r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$'
+    return bool(re.match(patron, mensaje.strip()))

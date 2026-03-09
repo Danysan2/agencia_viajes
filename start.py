@@ -79,7 +79,7 @@ def iniciar_servidor():
         print(f"""
 ╔══════════════════════════════════════════════════════════╗
 ║                                                          ║
-║          💈 CHATBOT BARBERÍA - WHATSAPP BOT 💈          ║
+║      ✈️  VIAJES COLOMBIA TOURS - WHATSAPP BOT 🇨🇴       ║
 ║                                                          ║
 ╚══════════════════════════════════════════════════════════╝
 
@@ -87,6 +87,10 @@ def iniciar_servidor():
 📡 Webhook: http://{host}:{port}/webhook
 🔧 Health: http://{host}:{port}/health
 📊 Stats: http://{host}:{port}/stats
+
+🗺️  Destinos: Bogotá, Medellín, Cartagena, Arauca
+🏨 Hoteles: 8 opciones disponibles
+🎉 Promociones: 2 ofertas especiales
 
 Presiona CTRL+C para detener el servidor
 """)
@@ -109,7 +113,7 @@ Presiona CTRL+C para detener el servidor
 def main():
     """Función principal"""
     print("=" * 60)
-    print("🚀 INICIO RÁPIDO - CHATBOT BARBERÍA")
+    print("🚀 INICIO RÁPIDO - VIAJES COLOMBIA TOURS CHATBOT")
     print("=" * 60)
     
     # 1. Verificar conexión a base de datos

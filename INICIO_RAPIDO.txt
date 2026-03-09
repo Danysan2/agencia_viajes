@@ -1,69 +1,78 @@
-╔══════════════════════════════════════════════════════════════════════╗
-║                                                                      ║
-║          💈 CHATBOT BARBERÍA - SOLUCIÓN AL ERROR 💈                 ║
-║                                                                      ║
-╚══════════════════════════════════════════════════════════════════════╝
+🚀 INICIO RÁPIDO - VIAJES COLOMBIA TOURS CHATBOT
+================================================
 
-❌ ERROR ACTUAL:
-   "column cliente_id does not exist"
+📋 PASOS PARA COMENZAR:
 
-✅ SOLUCIÓN EN 3 COMANDOS:
+1. INSTALAR DEPENDENCIAS
+   pip install -r requirements.txt
 
-   1️⃣  python check_database.py
-       (Verifica el estado actual)
+2. CONFIGURAR GOOGLE SHEETS
+   - Crear hoja de cálculo en Google Sheets
+   - Compartir con cuenta de servicio
+   - Copiar ID de la hoja
+   - Guardar credenciales en service_account.json
 
-   2️⃣  python reset_database.py
-       (Escribe "SI" para confirmar)
-       ⚠️  Esto eliminará datos existentes
+3. CONFIGURAR VARIABLES DE ENTORNO
+   Crear archivo .env con:
+   
+   GOOGLE_SHEET_ID=tu_id_aqui
+   EVOLUTION_API_URL=tu_url_aqui
+   EVOLUTION_API_KEY=tu_key_aqui
+   INSTANCE_NAME=tu_instancia
+   PORT=8000
 
-   3️⃣  python start.py
-       (Inicia el servidor automáticamente)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🚀 INICIO RÁPIDO (TODO EN UNO):
-
+4. INICIAR EL SERVIDOR
    python start.py
 
-   Este comando:
-   ✓ Verifica PostgreSQL
-   ✓ Crea tablas si no existen
-   ✓ Inicia el servidor
+5. CONFIGURAR WEBHOOK
+   python configurar_webhook.py
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. PROBAR EL CHATBOT
+   python test_chatbot_viajes.py
 
-📋 SCRIPTS DISPONIBLES:
+📱 FLUJO DEL CHATBOT:
 
-   check_database.py      → Verifica estado de la BD
-   reset_database.py      → Resetea todas las tablas
-   setup_database.py      → Inicializa BD (sin eliminar)
-   start.py              → Inicio automático
-   server.py             → Solo inicia servidor
-   test_integration.py   → Prueba todo el sistema
+MENÚ PRINCIPAL:
+1. Ver destinos → Bogotá, Medellín, Cartagena, Arauca
+2. Información sobre nosotros → Datos de la agencia
+3. Hablar con asesor → Contacto humano
+4. Ver promociones → Ofertas especiales
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FLUJO DE DESTINOS:
+Usuario selecciona destino → Ve hoteles disponibles → Ve detalles completos
 
-🔍 VERIFICAR QUE TODO FUNCIONA:
+🗺️ DESTINOS CONFIGURADOS:
+- Bogotá (2 hoteles)
+- Medellín (2 hoteles)
+- Cartagena (3 hoteles)
+- Arauca (1 hotel)
 
-   curl http://localhost:8001/health
+🎉 PROMOCIONES ACTIVAS:
+- Cartagena Express: 3 noches, $899.000
+- Medellín City Tour: 2 noches, $650.000
 
-   Respuesta esperada:
-   {"status": "healthy", ...}
+📝 COMANDOS ESPECIALES:
+- "menu" o "menú" → Volver al menú principal
+- "hola" → Reiniciar conversación
+- "inicio" → Volver al inicio
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 PERSONALIZACIÓN:
+Editar config/constants.py para:
+- Agregar/modificar destinos
+- Agregar/modificar hoteles
+- Cambiar promociones
+- Actualizar información de contacto
 
-📚 DOCUMENTACIÓN COMPLETA:
+📞 INFORMACIÓN DE CONTACTO:
+Agencia: Viajes Colombia Tours
+Sede: Bogotá, Colombia
+Horario: Lunes a sábado, 8am – 6pm
+Teléfono: +57 300 000 0000
 
-   SOLUCION_RAPIDA.md     → Guía detallada del error
-   GUIA_INSTALACION.md    → Instalación completa
-   README.md              → Documentación general
+✅ VERIFICACIÓN:
+Envía "hola" por WhatsApp y deberías recibir el menú de bienvenida.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆘 SOPORTE:
+Consulta GUIA_INSTALACION.md para más detalles.
 
-💡 TIPS:
-
-   • Si reset_database.py falla, verifica que PostgreSQL esté corriendo
-   • Las credenciales están en el archivo .env
-   • El servidor corre en http://0.0.0.0:8001
-
-╚══════════════════════════════════════════════════════════════════════╝
+¡Listo para comenzar! 🎉
