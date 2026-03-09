@@ -1,6 +1,16 @@
 """Motor principal del chatbot de agencia de viajes."""
 from typing import Optional, Tuple
-from loguru import logger
+
+# Importar logger solo si está disponible
+try:
+    from loguru import logger
+except ImportError:
+    # Fallback simple si loguru no está instalado
+    class SimpleLogger:
+        def info(self, msg): print(f"INFO: {msg}")
+        def error(self, msg): print(f"ERROR: {msg}")
+        def warning(self, msg): print(f"WARNING: {msg}")
+    logger = SimpleLogger()
 
 from services import SheetsClient, WhatsAppService
 from models import Cliente, Sesion

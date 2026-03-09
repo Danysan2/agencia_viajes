@@ -1,4 +1,8 @@
 """Script para poblar datos iniciales en Google Sheets."""
+# ARCHIVO COMENTADO - No necesario para agencia de viajes
+# Este script era para poblar servicios y disponibilidad de barbería
+
+"""
 import sys
 from pathlib import Path
 
@@ -12,7 +16,7 @@ from loguru import logger
 
 
 def seed_servicios(sheets: SheetsClient):
-    """Pobla la sheet de servicios."""
+    #Pobla la sheet de servicios.
     logger.info("Poblando servicios...")
     
     for servicio_data in SERVICIOS.values():
@@ -30,7 +34,7 @@ def seed_servicios(sheets: SheetsClient):
 
 
 def seed_disponibilidad(sheets: SheetsClient):
-    """Pobla la sheet de disponibilidad."""
+    #Pobla la sheet de disponibilidad.
     logger.info("Poblando disponibilidad...")
     
     # Para cada día de la semana (0=Lunes, 6=Domingo)
@@ -49,7 +53,7 @@ def seed_disponibilidad(sheets: SheetsClient):
 
 
 def main():
-    """Función principal."""
+    #Función principal.
     logger.info("🌱 Iniciando seed de datos...")
     
     sheets = SheetsClient()
@@ -68,3 +72,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
+
+# Para agencia de viajes, no se necesita seed de datos
+# Los destinos y hoteles están definidos en config/constants.py
+print("⚠️  Este script no es necesario para la agencia de viajes.")
+print("Los destinos y hoteles están configurados en config/constants.py")

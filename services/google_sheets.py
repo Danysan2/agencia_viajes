@@ -6,16 +6,28 @@ from typing import List, Optional, Dict, Any
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from loguru import logger
+
+# Importar logger solo si está disponible
+try:
+    from loguru import logger
+except ImportError:
+    class SimpleLogger:
+        def info(self, msg): print(f"INFO: {msg}")
+        def error(self, msg): print(f"ERROR: {msg}")
+        def warning(self, msg): print(f"WARNING: {msg}")
+    logger = SimpleLogger()
 
 from config.settings import (
     SERVICE_ACCOUNT_PATH, GOOGLE_SHEETS_ID, GOOGLE_SCOPES
 )
 from config.constants import (
-    SHEET_CLIENTES, SHEET_CITAS, SHEET_SERVICIOS,
-    SHEET_DISPONIBILIDAD, SHEET_SESIONES
+    SHEET_CLIENTES, SHEET_SESIONES
 )
-from models import Cliente, Cita, Servicio, Sesion
+# Constantes comentadas - no necesarias para agencia de viajes
+# SHEET_CITAS, SHEET_SERVICIOS, SHEET_DISPONIBILIDAD
+from models import Cliente, Sesion
+# Modelos comentados - no necesarios para agencia de viajes
+# from models import Cita, Servicio
 
 
 class SheetsClient:
@@ -126,10 +138,10 @@ class SheetsClient:
         range_name = f"{SHEET_CLIENTES}!A{row_index}:F{row_index}"
         return self._update_row(range_name, cliente.to_sheet_row())
     
-    # === CITAS ===
-    
+    # === CITAS === (COMENTADO - No necesario para agencia de viajes)
+    """
     def get_citas_por_telefono(self, telefono: str, solo_activas: bool = False) -> List[Cita]:
-        """Obtiene todas las citas de un cliente."""
+        #Obtiene todas las citas de un cliente.
         rows = self._read_range(f"{SHEET_CITAS}!A2:O")
         citas = []
         for row in rows:
@@ -140,7 +152,7 @@ class SheetsClient:
         return sorted(citas, key=lambda c: c.fecha)
     
     def get_citas_por_fecha(self, fecha: date) -> List[Cita]:
-        """Obtiene todas las citas de una fecha."""
+        #Obtiene todas las citas de una fecha.
         rows = self._read_range(f"{SHEET_CITAS}!A2:O")
         citas = []
         fecha_str = fecha.strftime('%d/%m/%Y')
@@ -150,7 +162,7 @@ class SheetsClient:
         return citas
     
     def crear_cita(self, cita: Cita) -> bool:
-        """Crea una nueva cita."""
+        #Crea una nueva cita.
         cita.id = f"cita_{uuid.uuid4().hex[:8]}"
         cita.fecha_creacion = datetime.now()
         cita.fecha_modificacion = datetime.now()
@@ -160,24 +172,25 @@ class SheetsClient:
         return success
     
     def actualizar_cita(self, cita: Cita, row_index: int) -> bool:
-        """Actualiza una cita existente."""
+        #Actualiza una cita existente.
         cita.fecha_modificacion = datetime.now()
         range_name = f"{SHEET_CITAS}!A{row_index}:O{row_index}"
         return self._update_row(range_name, cita.to_sheet_row())
     
     def get_cita_por_id(self, cita_id: str) -> Optional[tuple]:
-        """Busca una cita por ID y retorna (cita, row_index)."""
+        #Busca una cita por ID y retorna (cita, row_index).
         rows = self._read_range(f"{SHEET_CITAS}!A2:O")
         for idx, row in enumerate(rows, start=2):
             if len(row) > 0 and row[0] == cita_id:
                 return Cita.from_sheet_row(row), idx
         return None
+    """
 
     
-    # === SERVICIOS ===
-    
+    # === SERVICIOS === (COMENTADO - No necesario para agencia de viajes)
+    """
     def get_servicios_activos(self) -> List[Servicio]:
-        """Obtiene todos los servicios activos."""
+        #Obtiene todos los servicios activos.
         rows = self._read_range(f"{SHEET_SERVICIOS}!A2:F")
         servicios = []
         for row in rows:
@@ -187,12 +200,13 @@ class SheetsClient:
         return sorted(servicios, key=lambda s: s.orden)
     
     def get_servicio_por_id(self, servicio_id: str) -> Optional[Servicio]:
-        """Busca un servicio por ID."""
+        #Busca un servicio por ID.
         rows = self._read_range(f"{SHEET_SERVICIOS}!A2:F")
         for row in rows:
             if len(row) > 0 and row[0] == servicio_id:
                 return Servicio.from_sheet_row(row)
         return None
+    """
     
     # === SESIONES ===
     
