@@ -29,6 +29,9 @@ EVOLUTION_API_URL = os.getenv('EVOLUTION_API_URL', '')
 EVOLUTION_API_KEY = os.getenv('EVOLUTION_API_KEY', '')
 EVOLUTION_INSTANCE_NAME = os.getenv('EVOLUTION_INSTANCE_NAME', '')
 
+# Número del profesional para notificaciones
+PROFESSIONAL_PHONE = os.getenv('PROFESSIONAL_PHONE', '+573001234567')
+
 # Server
 HOST = os.getenv('HOST', '0.0.0.0')
 PORT = int(os.getenv('PORT', 8000))

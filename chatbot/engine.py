@@ -5,7 +5,6 @@ from typing import Optional, Tuple
 try:
     from loguru import logger
 except ImportError:
-    # Fallback simple si loguru no está instalado
     class SimpleLogger:
         def info(self, msg): print(f"INFO: {msg}")
         def error(self, msg): print(f"ERROR: {msg}")
@@ -31,6 +30,7 @@ except:
 
 from models import Cliente, Sesion
 from config.constants import *
+from config.settings import PROFESSIONAL_PHONE
 
 
 class ChatbotEngine:
@@ -41,7 +41,6 @@ class ChatbotEngine:
         try:
             self.sheets = SheetsClient()
         except:
-            # Usar mock si falla
             self.sheets = type('MockSheets', (), {
                 'get_sesion': lambda self, t: None,
                 'crear_sesion': lambda self, s: True,
@@ -55,8 +54,9 @@ class ChatbotEngine:
             self.whatsapp = WhatsAppService()
         except:
             self.whatsapp = None
-        # No se usa calendar en agencia de viajes
-        # self.calendar = CalendarClient()
+        
+        # Número del profesional para notificaciones
+        self.professional_phone = PROFESSIONAL_PHONE
     
     def procesar_mensaje(self, telefono: str, mensaje: str) -> str:
         """
@@ -69,33 +69,70 @@ class ChatbotEngine:
         Returns:
             Respuesta del chatbot
         """
+        mensaje_original = mensaje
         mensaje = mensaje.strip().lower()
-        
-        # Verificar si es comando para volver al menú
-        if mensaje in ['menu', 'menú', 'inicio', 'hola', 'volver']:
-            self.sheets.eliminar_sesion(telefono)
-            sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO)
-            self.sheets.crear_sesion(sesion)
-            return self._menu_principal()
         
         # Obtener o crear sesión
         sesion_data = self.sheets.get_sesion(telefono)
         
         if sesion_data is None:
-            # Nueva sesión - mostrar bienvenida
-            sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO)
-            self.sheets.crear_sesion(sesion)
-            return self._menu_principal()
+            sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO, bot_activo=True)
+            row_index = self.sheets.crear_sesion(sesion)
+        else:
+            sesion, row_index = sesion_data
         
-        sesion, row_index = sesion_data
+        # VERIFICAR SI EL BOT ESTÁ DESACTIVADO (HUMANO ATENDIENDO)
+        if not sesion.bot_activo:
+            # Verificar si han pasado 12 horas desde el handoff
+            if sesion.handoff_timestamp:
+                from datetime import timedelta
+                tiempo_transcurrido = datetime.now() - sesion.handoff_timestamp
+                if tiempo_transcurrido > timedelta(hours=HORAS_REACTIVACION_AUTO):
+                    # Reactivar bot automáticamente después de 12 horas
+                    logger.info(f"🤖 Reactivando bot automáticamente para {telefono} (12 horas transcurridas)")
+                    sesion.bot_activo = True
+                    sesion.handoff_timestamp = None
+                    sesion.estado = ESTADO_INICIO
+                    self.sheets.actualizar_sesion(sesion, row_index)
+                    return self._menu_principal()
+            
+            # Verificar si el mensaje es un comando de reactivación del bot
+            if any(comando in mensaje for comando in COMANDOS_REACTIVAR_BOT):
+                logger.info(f"🤖 Reactivando bot for {telefono} por comando del asesor")
+                sesion.bot_activo = True
+                sesion.handoff_timestamp = None
+                sesion.estado = ESTADO_INICIO
+                self.sheets.actualizar_sesion(sesion, row_index)
+                return """✅ *Bot reactivado*
+
+Hola de nuevo! Estoy aquí para ayudarte.
+
+""" + self._menu_principal()
+            
+            # Si el bot está desactivado y no es comando de reactivación, no responder
+            logger.info(f"🔇 Bot desactivado para {telefono}. Mensaje ignorado: {mensaje_original[:50]}")
+            return None  # No enviar respuesta automática
+        
+        # BOT ACTIVO - PROCESAMIENTO NORMAL
+        
+        # Verificar si es comando para volver al menú
+        if mensaje in ['menu', 'menú', 'inicio', 'hola', 'volver']:
+            self.sheets.eliminar_sesion(telefono)
+            sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO, bot_activo=True)
+            row_index = self.sheets.crear_sesion(sesion)
+            return self._menu_principal()
         
         # Procesar según el estado actual
         if sesion.estado == ESTADO_INICIO:
             return self._procesar_menu_principal(telefono, mensaje, sesion, row_index)
-        elif sesion.estado == ESTADO_VER_DESTINOS:
-            return self._procesar_seleccion_destino(telefono, mensaje, sesion, row_index)
-        elif sesion.estado == ESTADO_VER_HOTELES:
-            return self._procesar_seleccion_hotel(telefono, mensaje, sesion, row_index)
+        elif sesion.estado == ESTADO_BOLETOS_NACIONALES:
+            return self._procesar_boletos_nacionales(telefono, mensaje, sesion, row_index)
+        elif sesion.estado == ESTADO_BOLETOS_INTERNACIONALES:
+            return self._procesar_boletos_internacionales(telefono, mensaje, sesion, row_index)
+        elif sesion.estado == ESTADO_BOLETOS_AEREOS:
+            return self._procesar_boletos_aereos(telefono, mensaje, sesion, row_index)
+        elif sesion.estado == ESTADO_PAQUETES_TURISTICOS:
+            return self._procesar_paquetes_turisticos(telefono, mensaje, sesion, row_index)
         
         # Estado desconocido - resetear
         self.sheets.eliminar_sesion(telefono)
@@ -105,14 +142,14 @@ class ChatbotEngine:
         """Retorna el menú principal de bienvenida."""
         return """✈️ ¡Hola! Bienvenido a *Viajes Colombia Tours* 🇨🇴
 
-Es un gusto tenerte aquí. Somos tu agencia de confianza para descubrir los destinos más increíbles de nuestro país.
+Tu agencia de confianza para viajar por Colombia y el mundo.
 
-¿En qué te podemos ayudar hoy? Elige una opción:
+¿Qué estás buscando hoy?
 
-1️⃣ Conocer nuestros destinos en Colombia
-2️⃣ Información sobre nosotros
-3️⃣ Hablar con un asesor
-4️⃣ Ver promociones y ofertas especiales
+1️⃣ Boletos nacionales en Colombia
+2️⃣ Boletos internacionales
+3️⃣ Boletos aéreos (rutas populares)
+4️⃣ Paquetes turísticos
 
 Responde con el número de la opción."""
     
@@ -128,166 +165,439 @@ Responde con el número de la opción."""
             return "Opción inválida. Por favor responde con un número del 1 al 4."
         
         if mensaje == '1':
-            # Ver destinos
-            sesion.estado = ESTADO_VER_DESTINOS
+            # Boletos nacionales
+            sesion.estado = ESTADO_BOLETOS_NACIONALES
             sesion.datos_temp = {}
             self.sheets.actualizar_sesion(sesion, row_index)
-            return self._mostrar_destinos()
+            return self._mostrar_destinos_nacionales()
         
         elif mensaje == '2':
-            # Información sobre nosotros
-            self.sheets.eliminar_sesion(telefono)
-            return self._mostrar_informacion_agencia()
+            # Boletos internacionales
+            sesion.estado = ESTADO_BOLETOS_INTERNACIONALES
+            sesion.datos_temp = {}
+            self.sheets.actualizar_sesion(sesion, row_index)
+            return self._mostrar_destinos_internacionales()
         
         elif mensaje == '3':
-            # Contactar asesor
+            # Boletos aéreos - Enviar a humano
             self.sheets.eliminar_sesion(telefono)
-            return self._contactar_humano()
+            # Enviar notificación al profesional
+            self._enviar_notificacion_profesional(telefono, "Boletos aéreos")
+            return """✈️ *Boletos Aéreos*
+
+Perfecto! Un asesor especializado te contactará en breve para ayudarte con:
+
+• Consulta de disponibilidad
+• Mejores tarifas del momento
+• Opciones de aerolíneas
+• Horarios de vuelos
+• Reserva y emisión de boletos
+
+⏰ Tiempo de respuesta: 5-10 minutos
+
+Escribe *menú* si deseas ver otras opciones mientras esperas."""
         
         elif mensaje == '4':
-            # Ver promociones
+            # Paquetes turísticos - Enviar a humano
             self.sheets.eliminar_sesion(telefono)
-            return self._mostrar_promociones()
+            # Enviar notificación al profesional
+            self._enviar_notificacion_profesional(telefono, "Paquetes turísticos")
+            return """🎒 *Paquetes Turísticos*
+
+Excelente elección! Un asesor especializado te contactará en breve para ayudarte con:
+
+• Paquetes personalizados
+• Mejores ofertas disponibles
+• Itinerarios detallados
+• Opciones de pago
+• Reserva de tu paquete ideal
+
+⏰ Tiempo de respuesta: 5-10 minutos
+
+Escribe *menú* si deseas ver otras opciones mientras esperas."""
         
         return "Opción inválida."
     
-    def _mostrar_destinos(self) -> str:
-        """Muestra los destinos disponibles."""
-        return """🗺️ ¡Excelente elección! Colombia tiene destinos increíbles para ti.
-
-¿A cuál de estos lugares te gustaría viajar?
-
-1️⃣ Bogotá 🏛️
-2️⃣ Medellín 🌸
-3️⃣ Cartagena 🏖️
-4️⃣ Arauca 🌾
-
-Responde con el número del destino."""
-    
-    def _procesar_seleccion_destino(
-        self,
-        telefono: str,
-        mensaje: str,
-        sesion: Sesion,
-        row_index: int
-    ) -> str:
-        """Procesa la selección de destino."""
-        destinos_map = {
-            '1': 'bogota',
-            '2': 'medellin',
-            '3': 'cartagena',
-            '4': 'arauca'
-        }
+    def _mostrar_destinos_nacionales(self) -> str:
+        """Muestra los destinos nacionales disponibles desde Arauca."""
+        mensaje = "🚌 *Boletos Nacionales desde Arauca*\n\n"
+        mensaje += "Destinos disponibles:\n\n"
         
-        if mensaje not in destinos_map:
-            return "Opción inválida. Por favor responde con un número del 1 al 4."
+        # Agrupar por región para mejor visualización
+        for idx, destino in enumerate(DESTINOS_NACIONALES_DESDE_ARAUCA, 1):
+            mensaje += f"{idx}. {destino['nombre']} ({destino['departamento']})\n"
+            
+            # Agregar salto de línea cada 5 destinos para mejor lectura
+            if idx % 5 == 0:
+                mensaje += "\n"
         
-        destino_key = destinos_map[mensaje]
-        sesion.datos_temp = {"destino": destino_key}
-        sesion.estado = ESTADO_VER_HOTELES
-        self.sheets.actualizar_sesion(sesion, row_index)
-        
-        return self._mostrar_hoteles(destino_key)
-    
-    def _mostrar_hoteles(self, destino: str) -> str:
-        """Muestra los hoteles disponibles para un destino."""
-        hoteles = HOTELES.get(destino, [])
-        
-        if not hoteles:
-            return f"Lo sentimos, no tenemos hoteles disponibles en {DESTINOS[destino]['nombre']} en este momento.\n\nEscribe *menú* para volver al inicio."
-        
-        destino_info = DESTINOS[destino]
-        mensaje = f"{destino_info['emoji']} *{destino_info['nombre']}* te espera con estos hoteles disponibles:\n\n"
-        
-        for idx, hotel in enumerate(hoteles, 1):
-            mensaje += f"{idx}️⃣ {hotel['nombre']}\n"
-        
-        mensaje += "\n¿Cuál te llama la atención? Responde con el número."
+        mensaje += "\n💡 Todos los boletos son desde *Arauca* hacia el destino seleccionado.\n"
+        mensaje += "\n📝 Escribe el *número* del destino para consultar disponibilidad y precios.\n"
+        mensaje += "\nEscribe *menú* para volver al inicio."
         return mensaje
     
-    def _procesar_seleccion_hotel(
+    def _procesar_boletos_nacionales(
         self,
         telefono: str,
         mensaje: str,
         sesion: Sesion,
         row_index: int
     ) -> str:
-        """Procesa la selección de hotel y muestra detalles."""
-        destino = sesion.datos_temp.get("destino")
-        if not destino:
-            self.sheets.eliminar_sesion(telefono)
-            return "Error en la sesión. Escribe *menú* para comenzar de nuevo."
-        
-        hoteles = HOTELES.get(destino, [])
-        
+        """Procesa la selección de destino nacional desde Arauca."""
         try:
             opcion = int(mensaje)
-            if opcion < 1 or opcion > len(hoteles):
-                return f"Opción inválida. Por favor responde con un número del 1 al {len(hoteles)}."
+            
+            if opcion < 1 or opcion > len(DESTINOS_NACIONALES_DESDE_ARAUCA):
+                return f"Opción inválida. Por favor responde con un número del 1 al {len(DESTINOS_NACIONALES_DESDE_ARAUCA)}."
+            
+            destino = DESTINOS_NACIONALES_DESDE_ARAUCA[opcion - 1]
+            
+            # DESACTIVAR BOT Y TRANSFERIR A HUMANO
+            sesion.bot_activo = False
+            sesion.handoff_timestamp = datetime.now()
+            sesion.estado = ESTADO_HANDOFF_HUMANO
+            sesion.datos_temp['destino_seleccionado'] = destino['nombre']
+            sesion.datos_temp['departamento'] = destino['departamento']
+            sesion.datos_temp['tipo_solicitud'] = 'Boleto Nacional'
+            self.sheets.actualizar_sesion(sesion, row_index)
+            
+            # Obtener nombre del cliente si existe
+            try:
+                cliente = self.sheets.get_cliente_por_telefono(telefono)
+                nombre_cliente = cliente.nombre if cliente else "Cliente"
+            except:
+                nombre_cliente = "Cliente"
+            
+            # Enviar notificación al profesional
+            self._enviar_notificacion_handoff(
+                telefono_cliente=telefono,
+                nombre_cliente=nombre_cliente,
+                tipo_solicitud="Boleto Nacional",
+                detalles=f"Arauca → {destino['nombre']}, {destino['departamento']}"
+            )
+            
+            # Respuesta al cliente
+            return f"""🚌 *Arauca → {destino['nombre']}*
+
+📍 Destino: {destino['nombre']}, {destino['departamento']}
+🚏 Origen: Arauca
+
+✅ *Solicitud recibida*
+
+Un asesor especializado te contactará en breve para ayudarte con:
+• Disponibilidad de horarios
+• Precios y tarifas
+• Tipo de vehículo
+• Duración del viaje
+• Reserva de tu boleto
+
+⏰ Tiempo de respuesta: 5-10 minutos
+
+_Un asesor humano te atenderá personalmente._"""
+            
         except ValueError:
-            return f"Por favor responde con un número del 1 al {len(hoteles)}."
-        
-        hotel = hoteles[opcion - 1]
-        
-        # Limpiar sesión después de mostrar detalles
-        self.sheets.eliminar_sesion(telefono)
-        
-        return self._formatear_detalle_hotel(hotel)
+            return "Por favor responde con el número del destino."
     
-    def _formatear_detalle_hotel(self, hotel: dict) -> str:
-        """Formatea los detalles completos de un hotel."""
-        mensaje = f"🏨 *{hotel['nombre']} – {hotel['destino']}*\n\n"
-        mensaje += "✅ Incluye:\n"
+    def _mostrar_destinos_internacionales(self) -> str:
+        """Muestra los destinos internacionales disponibles."""
+        mensaje = "🌎 *Boletos Internacionales*\n\n"
+        mensaje += "Destinos disponibles:\n\n"
         
-        for item in hotel['incluye']:
+        for idx, (key, destino) in enumerate(DESTINOS_INTERNACIONALES.items(), 1):
+            mensaje += f"{idx}️⃣ {destino['emoji']} *{destino['nombre']}*\n"
+            # Mostrar ciudades disponibles
+            ciudades_str = ", ".join(destino['ciudades'])
+            mensaje += f"   📍 Ciudades: {ciudades_str}\n\n"
+        
+        mensaje += "💡 Selecciona el número del país para más información.\n"
+        mensaje += "\nEscribe *menú* para volver al inicio."
+        return mensaje
+    
+    def _procesar_boletos_internacionales(
+        self,
+        telefono: str,
+        mensaje: str,
+        sesion: Sesion,
+        row_index: int
+    ) -> str:
+        """Procesa la selección de destino internacional."""
+        try:
+            opcion = int(mensaje)
+            destinos_list = list(DESTINOS_INTERNACIONALES.values())
+            
+            if opcion < 1 or opcion > len(destinos_list):
+                return f"Opción inválida. Por favor responde con un número del 1 al {len(destinos_list)}."
+            
+            destino = destinos_list[opcion - 1]
+            
+            # DESACTIVAR BOT Y TRANSFERIR A HUMANO
+            sesion.bot_activo = False
+            sesion.handoff_timestamp = datetime.now()
+            sesion.estado = ESTADO_HANDOFF_HUMANO
+            sesion.datos_temp['destino_seleccionado'] = destino['nombre']
+            sesion.datos_temp['ciudades'] = destino['ciudades']
+            sesion.datos_temp['tipo_solicitud'] = 'Boleto Internacional'
+            self.sheets.actualizar_sesion(sesion, row_index)
+            
+            # Obtener nombre del cliente si existe
+            try:
+                cliente = self.sheets.get_cliente_por_telefono(telefono)
+                nombre_cliente = cliente.nombre if cliente else "Cliente"
+            except:
+                nombre_cliente = "Cliente"
+            
+            # Formatear ciudades
+            ciudades_str = ", ".join(destino['ciudades'])
+            
+            # Enviar notificación al profesional
+            self._enviar_notificacion_handoff(
+                telefono_cliente=telefono,
+                nombre_cliente=nombre_cliente,
+                tipo_solicitud="Boleto Internacional",
+                detalles=f"{destino['emoji']} {destino['nombre']} ({ciudades_str})"
+            )
+            
+            # Respuesta al cliente
+            return f"""✈️ *{destino['emoji']} {destino['nombre']}*
+
+📍 Ciudades: {ciudades_str}
+
+✅ *Solicitud recibida*
+
+Un asesor especializado te contactará en breve para ayudarte con:
+• Disponibilidad de vuelos
+• Mejores tarifas
+• Opciones de aerolíneas
+• Requisitos de viaje
+• Documentación necesaria
+• Reserva de boletos
+
+⏰ Tiempo de respuesta: 5-10 minutos
+
+_Un asesor humano te atenderá personalmente._"""
+            
+        except ValueError:
+            return "Por favor responde con el número del país."
+    
+    def _mostrar_boletos_aereos(self) -> str:
+        """Muestra las rutas aéreas populares."""
+        mensaje = "✈️ *Boletos Aéreos - Rutas Populares*\n\n"
+        
+        mensaje += "🇨🇴 *Vuelos Nacionales:*\n\n"
+        for idx, vuelo in enumerate(BOLETOS_AEREOS["nacionales"], 1):
+            mensaje += f"{idx}. {vuelo['ruta']}\n"
+            mensaje += f"   💰 Desde ${vuelo['precio_desde']:,} COP\n"
+            mensaje += f"   ⏱️ {vuelo['duracion']}\n"
+            mensaje += f"   ✈️ {vuelo['aerolinea']}\n\n"
+        
+        mensaje += "🌎 *Vuelos Internacionales:*\n\n"
+        for idx, vuelo in enumerate(BOLETOS_AEREOS["internacionales"], len(BOLETOS_AEREOS["nacionales"]) + 1):
+            mensaje += f"{idx}. {vuelo['ruta']}\n"
+            mensaje += f"   💰 Desde ${vuelo['precio_desde']:,} COP\n"
+            mensaje += f"   ⏱️ {vuelo['duracion']}\n"
+            mensaje += f"   ✈️ {vuelo['aerolinea']}\n\n"
+        
+        mensaje += "💡 Precios referenciales. Pueden variar según fecha y disponibilidad.\n\n"
+        mensaje += f"Para reservar, contáctanos:\n📞 {AGENCIA_TELEFONO}\n\n"
+        mensaje += "Escribe *menú* para volver al inicio."
+        
+        self.sheets.eliminar_sesion(telefono)
+        return mensaje
+    
+    def _procesar_boletos_aereos(
+        self,
+        telefono: str,
+        mensaje: str,
+        sesion: Sesion,
+        row_index: int
+    ) -> str:
+        """Procesa consultas sobre boletos aéreos."""
+        # Ya se mostró la información, cualquier mensaje vuelve al menú
+        self.sheets.eliminar_sesion(telefono)
+        return self._menu_principal()
+    
+    def _mostrar_paquetes_turisticos(self) -> str:
+        """Muestra los paquetes turísticos disponibles."""
+        mensaje = "🎒 *Paquetes Turísticos*\n\n"
+        mensaje += "Nuestros paquetes todo incluido:\n\n"
+        
+        for idx, paquete in enumerate(PAQUETES_TURISTICOS, 1):
+            tipo_emoji = "🇨🇴" if paquete["tipo"] == "nacional" else "🌎"
+            mensaje += f"{idx}️⃣ {tipo_emoji} *{paquete['nombre']}*\n"
+            mensaje += f"   📍 {paquete['destino']}\n"
+            mensaje += f"   📅 {paquete['duracion']}\n"
+            mensaje += f"   💰 ${paquete['precio']:,} COP\n\n"
+        
+        mensaje += "💡 Selecciona el número del paquete para ver detalles completos.\n"
+        mensaje += "\nEscribe *menú* para volver al inicio."
+        return mensaje
+    
+    def _procesar_paquetes_turisticos(
+        self,
+        telefono: str,
+        mensaje: str,
+        sesion: Sesion,
+        row_index: int
+    ) -> str:
+        """Procesa la selección de paquete turístico."""
+        try:
+            opcion = int(mensaje)
+            
+            if opcion < 1 or opcion > len(PAQUETES_TURISTICOS):
+                return f"Opción inválida. Por favor responde con un número del 1 al {len(PAQUETES_TURISTICOS)}."
+            
+            paquete = PAQUETES_TURISTICOS[opcion - 1]
+            self.sheets.eliminar_sesion(telefono)
+            
+            return self._formatear_detalle_paquete(paquete)
+            
+        except ValueError:
+            return "Por favor responde con el número del paquete."
+    
+    def _formatear_detalle_paquete(self, paquete: dict) -> str:
+        """Formatea los detalles completos de un paquete turístico."""
+        tipo_emoji = "🇨🇴" if paquete["tipo"] == "nacional" else "🌎"
+        
+        mensaje = f"{tipo_emoji} *{paquete['nombre']}*\n\n"
+        mensaje += f"📍 Destino: {paquete['destino']}\n"
+        mensaje += f"📅 Duración: {paquete['duracion']}\n"
+        mensaje += f"💰 Precio: ${paquete['precio']:,} COP por persona\n\n"
+        
+        mensaje += "✅ *Incluye:*\n"
+        for item in paquete['incluye']:
             mensaje += f"• {item}\n"
         
-        mensaje += f"\n💰 *Precio por noche:* ${hotel['precio_noche']:,} COP\n"
-        mensaje += "📅 Disponibilidad: Todo el año\n\n"
-        mensaje += "¿Te interesa este plan o quieres ver otro hotel?\n\n"
-        mensaje += "Escribe *menú* para volver al inicio o *3* para hablar con un asesor."
+        mensaje += f"\n📞 Para reservar este paquete, contáctanos:\n"
+        mensaje += f"WhatsApp: {AGENCIA_TELEFONO}\n"
+        mensaje += f"Horario: {AGENCIA_HORARIO}\n\n"
+        
+        mensaje += "💳 Aceptamos todas las formas de pago\n"
+        mensaje += "📝 Cupos limitados - ¡Reserva ya!\n\n"
+        mensaje += "Escribe *menú* para volver al inicio."
         
         return mensaje
     
-    def _mostrar_informacion_agencia(self) -> str:
-        """Muestra información sobre la agencia."""
-        return f"""🏢 *Sobre {AGENCIA_NOMBRE}*
+    def _enviar_notificacion_profesional(self, telefono_cliente: str, tipo_solicitud: str) -> bool:
+        """
+        Envía notificación al profesional cuando un cliente solicita atención.
+        
+        Args:
+            telefono_cliente: Número del cliente que solicita atención
+            tipo_solicitud: Tipo de solicitud (ej: "Boletos aéreos", "Paquetes turísticos")
+        
+        Returns:
+            True si se envió exitosamente, False en caso contrario
+        """
+        from datetime import datetime
+        
+        # Obtener información del cliente si existe
+        try:
+            cliente = self.sheets.get_cliente_por_telefono(telefono_cliente)
+            nombre_cliente = cliente.nombre if cliente else "Cliente nuevo"
+        except:
+            nombre_cliente = "Cliente nuevo"
+        
+        # Formatear mensaje de notificación
+        mensaje_notificacion = f"""🔔 *NUEVA SOLICITUD DE ATENCIÓN*
 
-¡Llevamos más de 8 años conectando a los colombianos con los destinos más hermosos del país! 🇨🇴
+👤 *Cliente:* {nombre_cliente}
+📱 *Teléfono:* {telefono_cliente}
+📋 *Solicitud:* {tipo_solicitud}
+⏰ *Hora:* {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
-🌟 *¿Qué ofrecemos?*
-• Paquetes turísticos nacionales todo incluido
-• Asesoría personalizada sin costo
-• Planes para familias, parejas y grupos
-• Hoteles seleccionados y verificados
-• Acompañamiento antes, durante y después del viaje
+Por favor, responde manualmente a este chat.
 
-📍 *Sede principal:* {AGENCIA_SEDE}
-⏰ *Horario de atención:* {AGENCIA_HORARIO}
-📞 *Línea directa:* {AGENCIA_TELEFONO}
-
-¿Deseas volver al menú principal? Escribe *menú*"""
+_Para reactivar el bot después, escribe: "te dejo con el bot"_"""
+        
+        # Intentar enviar el mensaje
+        if self.whatsapp:
+            try:
+                logger.info(f"📤 Enviando notificación al profesional {self.professional_phone}")
+                logger.info(f"Cliente: {telefono_cliente}, Solicitud: {tipo_solicitud}")
+                
+                # Enviar mensaje al profesional
+                resultado = self.whatsapp.enviar_mensaje(self.professional_phone, mensaje_notificacion)
+                
+                if resultado:
+                    logger.info(f"✅ Notificación enviada exitosamente al profesional")
+                else:
+                    logger.warning(f"⚠️ No se pudo confirmar el envío de la notificación")
+                
+                return resultado
+            except Exception as e:
+                logger.error(f"❌ Error enviando notificación al profesional: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
+        else:
+            # Si no hay servicio de WhatsApp, solo loguear
+            logger.warning(f"⚠️ WhatsApp no disponible. Notificación no enviada.")
+            logger.info(f"📋 Cliente {telefono_cliente} solicitó: {tipo_solicitud}")
+            logger.info(f"📱 Profesional configurado: {self.professional_phone}")
+            logger.info(f"💬 Mensaje que se enviaría:\n{mensaje_notificacion}")
+            return False
     
-    def _contactar_humano(self) -> str:
-        """Mensaje para contactar con un asesor humano."""
-        return """👤 En un momento uno de nuestros asesores estará contigo.
+    def _enviar_notificacion_handoff(
+        self,
+        telefono_cliente: str,
+        nombre_cliente: str,
+        tipo_solicitud: str,
+        detalles: str
+    ) -> bool:
+        """
+        Envía notificación al profesional cuando se transfiere un cliente (handoff).
+        Incluye información detallada de lo que el cliente solicitó.
+        
+        Args:
+            telefono_cliente: Número del cliente
+            nombre_cliente: Nombre del cliente
+            tipo_solicitud: Tipo de solicitud (ej: "Boleto Nacional", "Boleto Internacional")
+            detalles: Detalles específicos de la solicitud
+        
+        Returns:
+            True si se envió exitosamente, False en caso contrario
+        """
+        from datetime import datetime
+        
+        # Formatear mensaje de notificación con información detallada
+        mensaje_notificacion = f"""🔔 *NUEVA SOLICITUD DE ATENCIÓN*
 
-Por favor cuéntanos brevemente: *¿en qué destino estás interesado?* así podemos ayudarte mejor. 😊
+👤 *Cliente:* {nombre_cliente}
+📱 *Teléfono:* {telefono_cliente}
+📋 *Tipo:* {tipo_solicitud}
+📍 *Detalles:* {detalles}
+⏰ *Hora:* {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
-Escribe *menú* para volver al inicio."""
-    
-    def _mostrar_promociones(self) -> str:
-        """Muestra las promociones y ofertas especiales."""
-        mensaje = "🔥 *Promociones y Ofertas Especiales* 🔥\n\n"
+Por favor, responde manualmente a este chat.
+
+_Para reactivar el bot después, escribe: "te dejo con el bot"_"""
         
-        for idx, promo in enumerate(PROMOCIONES, 1):
-            mensaje += f"🎉 *Oferta {idx} – {promo['nombre']}*\n"
-            mensaje += f"Paquete {promo['noches']} noches para {promo['personas']} personas\n"
-            mensaje += f"✅ {promo['incluye']}\n"
-            mensaje += f"💰 Antes: ${promo['precio_antes']:,} | *Ahora: ${promo['precio_ahora']:,} COP*\n\n"
-        
-        mensaje += f"⏳ Ofertas válidas hasta el {PROMOCIONES[0]['valido_hasta']}\n\n"
-        mensaje += "¿Te interesa alguna? Escríbenos o habla con un asesor.\n"
-        mensaje += "¿Volver al menú? Escribe *menú*"
-        
-        return mensaje
+        # Intentar enviar el mensaje
+        if self.whatsapp:
+            try:
+                logger.info(f"📤 Enviando notificación de handoff al profesional {self.professional_phone}")
+                logger.info(f"Cliente: {telefono_cliente} ({nombre_cliente})")
+                logger.info(f"Solicitud: {tipo_solicitud} - {detalles}")
+                
+                # Enviar mensaje al profesional
+                resultado = self.whatsapp.enviar_mensaje(self.professional_phone, mensaje_notificacion)
+                
+                if resultado:
+                    logger.info(f"✅ Notificación de handoff enviada exitosamente")
+                else:
+                    logger.warning(f"⚠️ No se pudo confirmar el envío de la notificación de handoff")
+                
+                return resultado
+            except Exception as e:
+                logger.error(f"❌ Error enviando notificación de handoff: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
+        else:
+            # Si no hay servicio de WhatsApp, solo loguear
+            logger.warning(f"⚠️ WhatsApp no disponible. Notificación de handoff no enviada.")
+            logger.info(f"📋 Handoff: {nombre_cliente} ({telefono_cliente})")
+            logger.info(f"📋 Solicitud: {tipo_solicitud} - {detalles}")
+            logger.info(f"📱 Profesional configurado: {self.professional_phone}")
+            logger.info(f"💬 Mensaje que se enviaría:\n{mensaje_notificacion}")
+            return False
