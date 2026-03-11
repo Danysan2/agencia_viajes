@@ -242,6 +242,8 @@ Perfecto! Un asesor especializado te contactará en breve para ayudarte con:
 
 ⏰ Tiempo de respuesta: 5-10 minutos
 
+📞 *Nota:* La asesora te contactará desde otro número de WhatsApp para atender tu solicitud.
+
 Escribe *menú* si deseas ver otras opciones mientras esperas."""
         
         elif mensaje == '4':
@@ -260,6 +262,8 @@ Excelente elección! Un asesor especializado te contactará en breve para ayudar
 • Reserva de tu paquete ideal
 
 ⏰ Tiempo de respuesta: 5-10 minutos
+
+📞 *Nota:* La asesora te contactará desde otro número de WhatsApp para atender tu solicitud.
 
 Escribe *menú* si deseas ver otras opciones mientras esperas."""
         
@@ -351,6 +355,8 @@ Un asesor especializado te contactará en breve para ayudarte con:
 
 ⏰ Tiempo de respuesta: 5-10 minutos
 
+📞 *Nota:* La asesora te contactará desde otro número de WhatsApp para atender tu solicitud.
+
 _Un asesor humano te atenderá personalmente._"""
             
         except ValueError:
@@ -436,6 +442,8 @@ Un asesor especializado te contactará en breve para ayudarte con:
 • Reserva de boletos
 
 ⏰ Tiempo de respuesta: 5-10 minutos
+
+📞 *Nota:* La asesora te contactará desde otro número de WhatsApp para atender tu solicitud.
 
 _Un asesor humano te atenderá personalmente._"""
             
