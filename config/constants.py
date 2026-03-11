@@ -2,7 +2,7 @@
 """Constantes del negocio."""
 
 # Información de la agencia
-AGENCIA_NOMBRE = "Viajes Colombia Tours"
+AGENCIA_NOMBRE = "JYE Conexiones Arauca"
 AGENCIA_TELEFONO = "+57 300 000 0000"
 AGENCIA_SEDE = "Bogotá, Colombia"
 AGENCIA_HORARIO = "Lunes a sábado, 8am – 6pm"

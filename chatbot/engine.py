@@ -162,12 +162,15 @@ Hola de nuevo! Estoy aquí para ayudarte.
             return self._menu_principal()
         
         # Procesar según el estado actual
+        logger.info(f"🔄 Procesando mensaje en estado: {sesion.estado}")
+        
         if sesion.estado == ESTADO_INICIO:
             # Si el usuario escribe "hola" en estado inicio, mostrar menú
             if mensaje == 'hola':
                 return self._menu_principal()
             return self._procesar_menu_principal(telefono, mensaje, sesion, row_index)
         elif sesion.estado == ESTADO_BOLETOS_NACIONALES:
+            logger.info(f"📍 Procesando selección de destino nacional: {mensaje}")
             return self._procesar_boletos_nacionales(telefono, mensaje, sesion, row_index)
         elif sesion.estado == ESTADO_BOLETOS_INTERNACIONALES:
             return self._procesar_boletos_internacionales(telefono, mensaje, sesion, row_index)
@@ -177,6 +180,7 @@ Hola de nuevo! Estoy aquí para ayudarte.
             return self._procesar_paquetes_turisticos(telefono, mensaje, sesion, row_index)
         
         # Estado desconocido - resetear
+        logger.warning(f"⚠️ Estado desconocido: {sesion.estado} - Reseteando")
         self.sheets.eliminar_sesion(telefono)
         return self._menu_principal()
     

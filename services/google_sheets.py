@@ -34,48 +34,15 @@ except ImportError:
 
 
 class SheetsClient:
-    """Cliente simplificado para Google Sheets - Solo clientes y sesiones."""
+    """Cliente simplificado - Solo usa memoria (sin Google Sheets)."""
     
     def __init__(self):
-        """Inicializa el cliente."""
-        # Diccionario para modo mock (cuando no hay Google Sheets disponible)
+        """Inicializa el cliente en modo memoria."""
+        # SIEMPRE usar diccionarios en memoria
         self._mock_sesiones = {}
         self._mock_clientes = {}
-        
-        if not GOOGLE_AVAILABLE:
-            logger.warning("⚠️  Google API no disponible - modo mock")
-            self.service = None
-            return
-        
-        try:
-            import os
-            from pathlib import Path
-            
-            service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE')
-            
-            if service_account_json and service_account_json.startswith('{'):
-                service_account_info = json.loads(service_account_json)
-                self.credentials = service_account.Credentials.from_service_account_info(
-                    service_account_info,
-                    scopes=GOOGLE_SCOPES
-                )
-            else:
-                if not Path(SERVICE_ACCOUNT_PATH).exists():
-                    logger.warning("⚠️  Credenciales no encontradas - modo mock")
-                    self.service = None
-                    return
-                
-                self.credentials = service_account.Credentials.from_service_account_file(
-                    str(SERVICE_ACCOUNT_PATH),
-                    scopes=GOOGLE_SCOPES
-                )
-            
-            self.service = build('sheets', 'v4', credentials=self.credentials)
-            self.spreadsheet_id = GOOGLE_SHEETS_ID
-            logger.info("✅ Google Sheets conectado")
-        except Exception as e:
-            logger.warning(f"⚠️  Error inicializando Sheets: {e}")
-            self.service = None
+        self.service = None  # Desactivar Google Sheets completamente
+        logger.info("✅ Sistema de sesiones en memoria activado")
     
     def _read_range(self, range_name: str):
         """Lee un rango."""
@@ -124,16 +91,9 @@ class SheetsClient:
     
     def get_cliente_por_telefono(self, telefono: str) -> Optional:
         """Busca un cliente por teléfono."""
-        if not self.service:
-            return None
-        try:
-            rows = self._read_range(f"{SHEET_CLIENTES}!A2:F")
-            for row in rows:
-                if len(row) > 1 and row[1] == telefono:
-                    from models import Cliente
-                    return Cliente.from_sheet_row(row)
-        except:
-            pass
+        # Siempre usar memoria
+        if telefono in self._mock_clientes:
+            return self._mock_clientes[telefono]
         return None
     
     def crear_cliente(self, telefono: str, nombre: str):
@@ -147,80 +107,55 @@ class SheetsClient:
                 fecha_registro=datetime.now(),
                 total_citas=0
             )
-            if self.service:
-                self._append_row(SHEET_CLIENTES, cliente.to_sheet_row())
-            logger.info(f"Cliente creado: {cliente.id}")
+            # Guardar en memoria
+            self._mock_clientes[telefono] = cliente
+            logger.info(f"✅ Cliente creado en memoria: {cliente.id}")
             return cliente
         except:
             return None
     
     def actualizar_cliente(self, cliente, row_index: int) -> bool:
         """Actualiza un cliente."""
-        if not self.service:
-            return True
-        range_name = f"{SHEET_CLIENTES}!A{row_index}:F{row_index}"
-        return self._update_row(range_name, cliente.to_sheet_row())
+        # Guardar en memoria
+        self._mock_clientes[cliente.telefono] = cliente
+        return True
     
     # === SESIONES ===
     
     def get_sesion(self, telefono: str):
         """Obtiene la sesión de un usuario."""
-        if not self.service:
-            # Modo mock: usar diccionario en memoria
-            if telefono in self._mock_sesiones:
-                return self._mock_sesiones[telefono], 1
-            return None
-        try:
-            rows = self._read_range(f"{SHEET_SESIONES}!A2:E")
-            for idx, row in enumerate(rows, start=2):
-                if len(row) > 0 and row[0] == telefono:
-                    from models import Sesion
-                    return Sesion.from_sheet_row(row), idx
-        except:
-            pass
+        # SIEMPRE usar memoria
+        if telefono in self._mock_sesiones:
+            sesion = self._mock_sesiones[telefono]
+            logger.info(f"🔍 Sesión recuperada: {telefono} - Estado: {sesion.estado}")
+            return sesion, 1
+        logger.info(f"🔍 Sesión no encontrada: {telefono}")
         return None
     
     def crear_sesion(self, sesion) -> bool:
         """Crea una nueva sesión."""
-        if not self.service:
-            # Modo mock: guardar en diccionario
-            self._mock_sesiones[sesion.telefono] = sesion
-            return True
-        return self._append_row(SHEET_SESIONES, sesion.to_sheet_row())
+        # SIEMPRE usar memoria
+        self._mock_sesiones[sesion.telefono] = sesion
+        logger.info(f"✅ Sesión creada: {sesion.telefono} - Estado: {sesion.estado}")
+        return True
     
     def actualizar_sesion(self, sesion, row_index: int) -> bool:
         """Actualiza una sesión."""
-        if not self.service:
-            # Modo mock: actualizar diccionario
-            sesion.ultima_actividad = datetime.now()
-            self._mock_sesiones[sesion.telefono] = sesion
-            return True
+        # SIEMPRE usar memoria
         sesion.ultima_actividad = datetime.now()
-        range_name = f"{SHEET_SESIONES}!A{row_index}:E{row_index}"
-        return self._update_row(range_name, sesion.to_sheet_row())
+        self._mock_sesiones[sesion.telefono] = sesion
+        logger.info(f"✏️ Sesión actualizada: {sesion.telefono} - Estado: {sesion.estado}")
+        return True
     
     def eliminar_sesion(self, telefono: str) -> bool:
         """Elimina una sesión."""
-        if not self.service:
-            # Modo mock: eliminar del diccionario
-            if telefono in self._mock_sesiones:
-                del self._mock_sesiones[telefono]
-            return True
-        result = self.get_sesion(telefono)
-        if result:
-            _, row_index = result
-            range_name = f"{SHEET_SESIONES}!A{row_index}:E{row_index}"
-            return self._update_row(range_name, ["", "", "", "", ""])
-        return False
+        # SIEMPRE usar memoria
+        if telefono in self._mock_sesiones:
+            del self._mock_sesiones[telefono]
+            logger.info(f"🗑️ Sesión eliminada: {telefono}")
+        return True
     
     def test_connection(self) -> bool:
         """Prueba la conexión."""
-        if not self.service:
-            return False
-        try:
-            self.service.spreadsheets().get(
-                spreadsheetId=self.spreadsheet_id
-            ).execute()
-            return True
-        except:
-            return False
+        # Siempre retornar True ya que usamos memoria
+        return True
