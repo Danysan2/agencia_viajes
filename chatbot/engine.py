@@ -560,11 +560,14 @@ _Un asesor humano te atenderá personalmente._"""
         except:
             nombre_cliente = "Cliente nuevo"
         
+        # Agregar el símbolo "+" al número si no lo tiene
+        telefono_formateado = telefono_cliente if telefono_cliente.startswith('+') else f'+{telefono_cliente}'
+        
         # Formatear mensaje de notificación
         mensaje_notificacion = f"""🔔 *NUEVA SOLICITUD DE ATENCIÓN*
 
 👤 *Cliente:* {nombre_cliente}
-📱 *Teléfono:* {telefono_cliente}
+📱 *Teléfono:* {telefono_formateado}
 📋 *Solicitud:* {tipo_solicitud}
 ⏰ *Hora:* {datetime.now().strftime('%d/%m/%Y %H:%M')}
 
@@ -622,11 +625,14 @@ _Para reactivar el bot después, escribe: "te dejo con el bot"_"""
         """
         from datetime import datetime
         
+        # Agregar el símbolo "+" al número si no lo tiene
+        telefono_formateado = telefono_cliente if telefono_cliente.startswith('+') else f'+{telefono_cliente}'
+        
         # Formatear mensaje de notificación con información detallada
         mensaje_notificacion = f"""🔔 *NUEVA SOLICITUD DE ATENCIÓN*
 
 👤 *Cliente:* {nombre_cliente}
-📱 *Teléfono:* {telefono_cliente}
+📱 *Teléfono:* {telefono_formateado}
 📋 *Tipo:* {tipo_solicitud}
 📍 *Detalles:* {detalles}
 ⏰ *Hora:* {datetime.now().strftime('%d/%m/%Y %H:%M')}

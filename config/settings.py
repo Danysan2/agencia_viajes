@@ -30,7 +30,7 @@ EVOLUTION_API_KEY = os.getenv('EVOLUTION_API_KEY', '')
 EVOLUTION_INSTANCE_NAME = os.getenv('EVOLUTION_INSTANCE_NAME', '')
 
 # Número del profesional para notificaciones
-PROFESSIONAL_PHONE = os.getenv('PROFESSIONAL_PHONE', '573042217935')
+PROFESSIONAL_PHONE = os.getenv('PROFESSIONAL_PHONE', '+573005000205')
 
 # Server
 HOST = os.getenv('HOST', '0.0.0.0')
