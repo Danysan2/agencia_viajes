@@ -38,6 +38,10 @@ class SheetsClient:
     
     def __init__(self):
         """Inicializa el cliente."""
+        # Diccionario para modo mock (cuando no hay Google Sheets disponible)
+        self._mock_sesiones = {}
+        self._mock_clientes = {}
+        
         if not GOOGLE_AVAILABLE:
             logger.warning("⚠️  Google API no disponible - modo mock")
             self.service = None
@@ -162,6 +166,9 @@ class SheetsClient:
     def get_sesion(self, telefono: str):
         """Obtiene la sesión de un usuario."""
         if not self.service:
+            # Modo mock: usar diccionario en memoria
+            if telefono in self._mock_sesiones:
+                return self._mock_sesiones[telefono], 1
             return None
         try:
             rows = self._read_range(f"{SHEET_SESIONES}!A2:E")
@@ -176,12 +183,17 @@ class SheetsClient:
     def crear_sesion(self, sesion) -> bool:
         """Crea una nueva sesión."""
         if not self.service:
+            # Modo mock: guardar en diccionario
+            self._mock_sesiones[sesion.telefono] = sesion
             return True
         return self._append_row(SHEET_SESIONES, sesion.to_sheet_row())
     
     def actualizar_sesion(self, sesion, row_index: int) -> bool:
         """Actualiza una sesión."""
         if not self.service:
+            # Modo mock: actualizar diccionario
+            sesion.ultima_actividad = datetime.now()
+            self._mock_sesiones[sesion.telefono] = sesion
             return True
         sesion.ultima_actividad = datetime.now()
         range_name = f"{SHEET_SESIONES}!A{row_index}:E{row_index}"
@@ -190,6 +202,9 @@ class SheetsClient:
     def eliminar_sesion(self, telefono: str) -> bool:
         """Elimina una sesión."""
         if not self.service:
+            # Modo mock: eliminar del diccionario
+            if telefono in self._mock_sesiones:
+                del self._mock_sesiones[telefono]
             return True
         result = self.get_sesion(telefono)
         if result:

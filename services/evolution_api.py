@@ -34,22 +34,35 @@ class EvolutionAPI:
         """Envía un mensaje de texto por WhatsApp."""
         url = f"{self.base_url}/message/sendText/{self.instance_name}"
         
-        # Asegurar formato correcto del número
-        if not telefono.startswith('57'):
-            telefono = f"57{telefono}"
+        # Asegurar formato correcto del número (sin + al inicio)
+        telefono_limpio = telefono.replace('+', '').strip()
+        if not telefono_limpio.startswith('57'):
+            telefono_limpio = f"57{telefono_limpio}"
         
         payload = {
-            "number": telefono,
+            "number": telefono_limpio,
             "text": mensaje
         }
         
+        # Logging detallado para debugging
+        logger.info(f"📤 Intentando enviar mensaje a: {telefono_limpio}")
+        logger.info(f"🔗 URL: {url}")
+        logger.info(f"📋 Payload: {payload}")
+        
         try:
             response = requests.post(url, json=payload, headers=self.headers, timeout=10)
+            
+            # Log de respuesta
+            logger.info(f"📥 Status Code: {response.status_code}")
+            logger.info(f"📥 Response: {response.text}")
+            
             response.raise_for_status()
-            logger.info(f"Mensaje enviado a {telefono}")
+            logger.info(f"✅ Mensaje enviado exitosamente a {telefono_limpio}")
             return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error enviando mensaje a {telefono}: {e}")
+            logger.error(f"❌ Error enviando mensaje a {telefono_limpio}: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"❌ Response body: {e.response.text}")
             return False
     
     def get_instance_status(self) -> Optional[Dict[str, Any]]:

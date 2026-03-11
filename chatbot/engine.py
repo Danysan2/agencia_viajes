@@ -1,5 +1,6 @@
 """Motor principal del chatbot de agencia de viajes."""
 from typing import Optional, Tuple
+from datetime import datetime
 
 # Importar logger solo si está disponible
 try:
@@ -41,14 +42,43 @@ class ChatbotEngine:
         try:
             self.sheets = SheetsClient()
         except:
-            self.sheets = type('MockSheets', (), {
-                'get_sesion': lambda self, t: None,
-                'crear_sesion': lambda self, s: True,
-                'actualizar_sesion': lambda self, s, r: True,
-                'eliminar_sesion': lambda self, t: True,
-                'get_cliente_por_telefono': lambda self, t: None,
-                'crear_cliente': lambda self, t, n: None
-            })()
+            # Mock de SheetsClient que guarda sesiones en memoria
+            class MockSheets:
+                def __init__(self):
+                    self.sesiones = {}  # Diccionario para guardar sesiones en memoria
+                    self.row_counter = 1
+                
+                def get_sesion(self, telefono):
+                    if telefono in self.sesiones:
+                        logger.info(f"🔍 MockSheets: Sesión encontrada para {telefono}, estado={self.sesiones[telefono].estado}")
+                        return self.sesiones[telefono], self.row_counter
+                    logger.info(f"🔍 MockSheets: No hay sesión para {telefono}")
+                    return None
+                
+                def crear_sesion(self, sesion):
+                    logger.info(f"➕ MockSheets: Creando sesión para {sesion.telefono}, estado={sesion.estado}")
+                    self.sesiones[sesion.telefono] = sesion
+                    self.row_counter += 1
+                    return self.row_counter
+                
+                def actualizar_sesion(self, sesion, row):
+                    logger.info(f"🔄 MockSheets: Actualizando sesión para {sesion.telefono}, estado={sesion.estado}")
+                    self.sesiones[sesion.telefono] = sesion
+                    return True
+                
+                def eliminar_sesion(self, telefono):
+                    logger.info(f"🗑️ MockSheets: Eliminando sesión para {telefono}")
+                    if telefono in self.sesiones:
+                        del self.sesiones[telefono]
+                    return True
+                
+                def get_cliente_por_telefono(self, telefono):
+                    return None
+                
+                def crear_cliente(self, telefono, nombre):
+                    return None
+            
+            self.sheets = MockSheets()
         
         try:
             self.whatsapp = WhatsAppService()
@@ -78,8 +108,10 @@ class ChatbotEngine:
         if sesion_data is None:
             sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO, bot_activo=True)
             row_index = self.sheets.crear_sesion(sesion)
+            logger.info(f"📝 Nueva sesión creada para {telefono} en estado {sesion.estado}")
         else:
             sesion, row_index = sesion_data
+            logger.info(f"📝 Sesión recuperada para {telefono} en estado {sesion.estado}")
         
         # VERIFICAR SI EL BOT ESTÁ DESACTIVADO (HUMANO ATENDIENDO)
         if not sesion.bot_activo:
@@ -115,8 +147,15 @@ Hola de nuevo! Estoy aquí para ayudarte.
         
         # BOT ACTIVO - PROCESAMIENTO NORMAL
         
-        # Verificar si es comando para volver al menú
-        if mensaje in ['menu', 'menú', 'inicio', 'hola', 'volver']:
+        # Verificar si es comando para volver al menú (excepto "hola" en primera interacción)
+        if mensaje in ['menu', 'menú', 'inicio', 'volver']:
+            self.sheets.eliminar_sesion(telefono)
+            sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO, bot_activo=True)
+            row_index = self.sheets.crear_sesion(sesion)
+            return self._menu_principal()
+        
+        # "hola" solo resetea si ya hay una sesión activa, sino es el saludo inicial
+        if mensaje == 'hola' and sesion.estado != ESTADO_INICIO:
             self.sheets.eliminar_sesion(telefono)
             sesion = Sesion(telefono=telefono, estado=ESTADO_INICIO, bot_activo=True)
             row_index = self.sheets.crear_sesion(sesion)
@@ -124,6 +163,9 @@ Hola de nuevo! Estoy aquí para ayudarte.
         
         # Procesar según el estado actual
         if sesion.estado == ESTADO_INICIO:
+            # Si el usuario escribe "hola" en estado inicio, mostrar menú
+            if mensaje == 'hola':
+                return self._menu_principal()
             return self._procesar_menu_principal(telefono, mensaje, sesion, row_index)
         elif sesion.estado == ESTADO_BOLETOS_NACIONALES:
             return self._procesar_boletos_nacionales(telefono, mensaje, sesion, row_index)
@@ -219,21 +261,22 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
         return "Opción inválida."
     
     def _mostrar_destinos_nacionales(self) -> str:
-        """Muestra los destinos nacionales disponibles desde Arauca."""
+        """Muestra los destinos nacionales disponibles desde Arauca con precios."""
         mensaje = "🚌 *Boletos Nacionales desde Arauca*\n\n"
         mensaje += "Destinos disponibles:\n\n"
         
-        # Agrupar por región para mejor visualización
+        # Mostrar destinos con precios
         for idx, destino in enumerate(DESTINOS_NACIONALES_DESDE_ARAUCA, 1):
-            mensaje += f"{idx}. {destino['nombre']} ({destino['departamento']})\n"
+            precio_formateado = f"${destino['precio']:,}".replace(",", ".")
+            mensaje += f"{idx}. {destino['nombre']} - {precio_formateado}\n"
             
             # Agregar salto de línea cada 5 destinos para mejor lectura
             if idx % 5 == 0:
                 mensaje += "\n"
         
         mensaje += "\n💡 Todos los boletos son desde *Arauca* hacia el destino seleccionado.\n"
-        mensaje += "\n📝 Escribe el *número* del destino para consultar disponibilidad y precios.\n"
-        mensaje += "\nEscribe *menú* para volver al inicio."
+        mensaje += f"\n📝 Escribe el *número* del destino (1-{len(DESTINOS_NACIONALES_DESDE_ARAUCA)}) para más información.\n"
+        mensaje += "\nEscribe *volver* para regresar al menú principal."
         return mensaje
     
     def _procesar_boletos_nacionales(
@@ -244,13 +287,21 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
         row_index: int
     ) -> str:
         """Procesa la selección de destino nacional desde Arauca."""
+        # Verificar si quiere volver al menú
+        if mensaje in ['volver', 'menu', 'menú', 'atras', 'atrás']:
+            self.sheets.eliminar_sesion(telefono)
+            return self._menu_principal()
+        
         try:
             opcion = int(mensaje)
             
             if opcion < 1 or opcion > len(DESTINOS_NACIONALES_DESDE_ARAUCA):
-                return f"Opción inválida. Por favor responde con un número del 1 al {len(DESTINOS_NACIONALES_DESDE_ARAUCA)}."
+                return f"Opción inválida. Por favor responde con un número del 1 al {len(DESTINOS_NACIONALES_DESDE_ARAUCA)} o escribe *volver* para regresar al menú."
             
             destino = DESTINOS_NACIONALES_DESDE_ARAUCA[opcion - 1]
+            
+            # Formatear precio
+            precio_formateado = f"${destino['precio']:,}".replace(",", ".")
             
             # DESACTIVAR BOT Y TRANSFERIR A HUMANO
             sesion.bot_activo = False
@@ -258,6 +309,7 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
             sesion.estado = ESTADO_HANDOFF_HUMANO
             sesion.datos_temp['destino_seleccionado'] = destino['nombre']
             sesion.datos_temp['departamento'] = destino['departamento']
+            sesion.datos_temp['precio'] = destino['precio']
             sesion.datos_temp['tipo_solicitud'] = 'Boleto Nacional'
             self.sheets.actualizar_sesion(sesion, row_index)
             
@@ -273,7 +325,7 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
                 telefono_cliente=telefono,
                 nombre_cliente=nombre_cliente,
                 tipo_solicitud="Boleto Nacional",
-                detalles=f"Arauca → {destino['nombre']}, {destino['departamento']}"
+                detalles=f"Arauca → {destino['nombre']}, {destino['departamento']} | Precio: {precio_formateado}"
             )
             
             # Respuesta al cliente
@@ -281,12 +333,13 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
 
 📍 Destino: {destino['nombre']}, {destino['departamento']}
 🚏 Origen: Arauca
+💰 Precio: {precio_formateado} COP
 
 ✅ *Solicitud recibida*
 
 Un asesor especializado te contactará en breve para ayudarte con:
 • Disponibilidad de horarios
-• Precios y tarifas
+• Confirmación de precio
 • Tipo de vehículo
 • Duración del viaje
 • Reserva de tu boleto
@@ -296,7 +349,7 @@ Un asesor especializado te contactará en breve para ayudarte con:
 _Un asesor humano te atenderá personalmente._"""
             
         except ValueError:
-            return "Por favor responde con el número del destino."
+            return f"Por favor responde con el número del destino (1-{len(DESTINOS_NACIONALES_DESDE_ARAUCA)}) o escribe *volver* para regresar al menú."
     
     def _mostrar_destinos_internacionales(self) -> str:
         """Muestra los destinos internacionales disponibles."""
@@ -310,7 +363,7 @@ _Un asesor humano te atenderá personalmente._"""
             mensaje += f"   📍 Ciudades: {ciudades_str}\n\n"
         
         mensaje += "💡 Selecciona el número del país para más información.\n"
-        mensaje += "\nEscribe *menú* para volver al inicio."
+        mensaje += "\nEscribe *volver* para regresar al menú principal."
         return mensaje
     
     def _procesar_boletos_internacionales(
@@ -321,12 +374,17 @@ _Un asesor humano te atenderá personalmente._"""
         row_index: int
     ) -> str:
         """Procesa la selección de destino internacional."""
+        # Verificar si quiere volver al menú
+        if mensaje in ['volver', 'menu', 'menú', 'atras', 'atrás']:
+            self.sheets.eliminar_sesion(telefono)
+            return self._menu_principal()
+        
         try:
             opcion = int(mensaje)
             destinos_list = list(DESTINOS_INTERNACIONALES.values())
             
             if opcion < 1 or opcion > len(destinos_list):
-                return f"Opción inválida. Por favor responde con un número del 1 al {len(destinos_list)}."
+                return f"Opción inválida. Por favor responde con un número del 1 al {len(destinos_list)} o escribe *volver* para regresar al menú."
             
             destino = destinos_list[opcion - 1]
             
@@ -377,7 +435,7 @@ Un asesor especializado te contactará en breve para ayudarte con:
 _Un asesor humano te atenderá personalmente._"""
             
         except ValueError:
-            return "Por favor responde con el número del país."
+            return f"Por favor responde con el número del país (1-{len(list(DESTINOS_INTERNACIONALES.values()))}) o escribe *volver* para regresar al menú."
     
     def _mostrar_boletos_aereos(self) -> str:
         """Muestra las rutas aéreas populares."""

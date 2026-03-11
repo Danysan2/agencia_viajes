@@ -15,7 +15,7 @@ SERVICE_ACCOUNT_PATH = BASE_DIR / SERVICE_ACCOUNT_FILE
 GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID', '1XEk1okxlRuTfCYsNXGSrtDXeYq0_S1FT')
 
 # Google Calendar
-GOOGLE_CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID', 'churcobarberstudio@gmail.com')
+GOOGLE_CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID', 'agenciajyearauca@gmail.com')
 TIMEZONE = os.getenv('TIMEZONE', 'America/Bogota')
 
 # Google API Scopes
@@ -30,11 +30,11 @@ EVOLUTION_API_KEY = os.getenv('EVOLUTION_API_KEY', '')
 EVOLUTION_INSTANCE_NAME = os.getenv('EVOLUTION_INSTANCE_NAME', '')
 
 # Número del profesional para notificaciones
-PROFESSIONAL_PHONE = os.getenv('PROFESSIONAL_PHONE', '+573001234567')
+PROFESSIONAL_PHONE = os.getenv('PROFESSIONAL_PHONE', '573001833654')
 
 # Server
 HOST = os.getenv('HOST', '0.0.0.0')
-PORT = int(os.getenv('PORT', 8000))
+PORT = int(os.getenv('PORT', 8002))
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # Sesiones

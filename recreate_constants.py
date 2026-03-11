@@ -1,5 +1,9 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Constantes del negocio."""
+"""Script para recrear config/constants.py con precios."""
+
+CONTENT = """# -*- coding: utf-8 -*-
+\"\"\"Constantes del negocio.\"\"\"
 
 # Información de la agencia
 AGENCIA_NOMBRE = "Viajes Colombia Tours"
@@ -7,7 +11,7 @@ AGENCIA_TELEFONO = "+57 300 000 0000"
 AGENCIA_SEDE = "Bogotá, Colombia"
 AGENCIA_HORARIO = "Lunes a sábado, 8am – 6pm"
 
-# Destinos nacionales desde Arauca con precios - TODOS LOS 37 DESTINOS
+# Destinos nacionales desde Arauca con precios
 DESTINOS_NACIONALES_DESDE_ARAUCA = [
     {"nombre": "Tame", "departamento": "Arauca", "precio": 60000},
     {"nombre": "Saravena", "departamento": "Arauca", "precio": 60000},
@@ -39,13 +43,8 @@ DESTINOS_NACIONALES_DESDE_ARAUCA = [
     {"nombre": "Manizales", "departamento": "Caldas", "precio": 270000},
     {"nombre": "Medellín", "departamento": "Antioquia", "precio": 290000},
     {"nombre": "Pitalito", "departamento": "Huila", "precio": 300000},
-    {"nombre": "La Hormiga", "departamento": "Putumayo", "precio": 300000},
     {"nombre": "Pasto", "departamento": "Nariño", "precio": 360000},
-    {"nombre": "Ipiales", "departamento": "Nariño", "precio": 360000},
-    {"nombre": "Santa Marta", "departamento": "Magdalena", "precio": 380000},
-    {"nombre": "Cartagena", "departamento": "Bolívar", "precio": 380000},
-    {"nombre": "Barranquilla", "departamento": "Atlántico", "precio": 380000},
-    {"nombre": "Necoclí", "departamento": "Antioquia", "precio": 400000}
+    {"nombre": "Ipiales", "departamento": "Nariño", "precio": 360000}
 ]
 
 # Destinos internacionales - Ecuador, Perú y Chile
@@ -232,3 +231,10 @@ COMANDOS_REACTIVAR_BOT = [
 
 # Tiempo de reactivación automática del bot (en horas)
 HORAS_REACTIVACION_AUTO = 12
+"""
+
+if __name__ == "__main__":
+    with open('config/constants.py', 'w', encoding='utf-8') as f:
+        f.write(CONTENT)
+    print("✅ Archivo config/constants.py recreado exitosamente")
+    print(f"   Tamaño: {len(CONTENT)} caracteres")
