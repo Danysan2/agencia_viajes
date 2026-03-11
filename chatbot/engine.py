@@ -129,8 +129,9 @@ class ChatbotEngine:
                     return self._menu_principal()
             
             # Verificar si el mensaje es un comando de reactivación del bot
+            # IMPORTANTE: Solo el asesor debe usar estos comandos
             if any(comando in mensaje for comando in COMANDOS_REACTIVAR_BOT):
-                logger.info(f"🤖 Reactivando bot for {telefono} por comando del asesor")
+                logger.info(f"🤖 Reactivando bot para {telefono} por comando del asesor")
                 sesion.bot_activo = True
                 sesion.handoff_timestamp = None
                 sesion.estado = ESTADO_INICIO
@@ -186,7 +187,7 @@ Hola de nuevo! Estoy aquí para ayudarte.
     
     def _menu_principal(self) -> str:
         """Retorna el menú principal de bienvenida."""
-        return """✈️ ¡Hola! Bienvenido a *Viajes Colombia Tours* 🇨🇴
+        return """✈️ ¡Hola! Bienvenido a *JYE Conexiones Arauca Libertadores* 🚌
 
 Tu agencia de confianza para viajar por Colombia y el mundo.
 

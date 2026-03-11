@@ -2,10 +2,10 @@
 """Constantes del negocio."""
 
 # Información de la agencia
-AGENCIA_NOMBRE = "JYE Conexiones Arauca"
-AGENCIA_TELEFONO = "+57 300 000 0000"
-AGENCIA_SEDE = "Bogotá, Colombia"
-AGENCIA_HORARIO = "Lunes a sábado, 8am – 6pm"
+AGENCIA_NOMBRE = "JYE Conexiones Arauca Libertadores"
+AGENCIA_TELEFONO = "+57 300 183 3654"
+AGENCIA_SEDE = "Arauca, Colombia"
+AGENCIA_HORARIO = "Lunes a sábado, 6am – 8pm"
 
 # Destinos nacionales desde Arauca con precios - TODOS LOS 37 DESTINOS
 DESTINOS_NACIONALES_DESDE_ARAUCA = [
@@ -218,16 +218,28 @@ SHEET_SESIONES = "sesiones_chat"
 # Estado adicional para handoff
 ESTADO_HANDOFF_HUMANO = "handoff_humano"  # Bot desactivado, humano atendiendo
 
-# Comandos para reactivar el bot
+# Comandos para reactivar el bot (solo el profesional puede usarlos)
 COMANDOS_REACTIVAR_BOT = [
+    "bot",
     "activar bot",
     "te dejo con el bot",
+    "activate",
     "bot activo",
     "continua bot",
     "continúa bot",
     "vuelve bot",
     "bot on",
-    "activar chatbot"
+    "activar chatbot",
+    "reactivar bot",
+    "encender bot",
+    "activar",
+    "activa bot",
+    "activa el bot",
+    "enciende bot",
+    "enciende el bot",
+    "bot activado",
+    "listo bot",
+    "ya bot"
 ]
 
 # Tiempo de reactivación automática del bot (en horas)
