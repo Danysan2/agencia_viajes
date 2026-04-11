@@ -36,7 +36,9 @@ class EvolutionAPI:
         
         # Asegurar formato correcto del número (sin + al inicio)
         telefono_limpio = telefono.replace('+', '').strip()
-        if not telefono_limpio.startswith('57'):
+        # Solo agregar el código de Colombia (57) si el número parece local
+        # (menos de 12 dígitos y no empieza con código de país conocido)
+        if len(telefono_limpio) <= 10 and not telefono_limpio.startswith('57'):
             telefono_limpio = f"57{telefono_limpio}"
         
         payload = {
