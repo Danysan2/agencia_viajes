@@ -193,8 +193,8 @@ Tu agencia de confianza para viajar por Colombia y el mundo.
 
 ¿Qué estás buscando hoy?
 
-1️⃣ Boletos nacionales en Colombia
-2️⃣ Boletos internacionales
+1️⃣ Boletos nacionales en Colombia 🇨🇴
+2️⃣ Boletos internacionales 🌎 (Ecuador, Venezuela, Perú, Chile)
 3️⃣ Boletos aéreos (rutas populares)
 4️⃣ Paquetes turísticos
 
@@ -271,7 +271,7 @@ Escribe *menú* si deseas ver otras opciones mientras esperas."""
     
     def _mostrar_destinos_nacionales(self) -> str:
         """Muestra los destinos nacionales disponibles desde Arauca con precios."""
-        mensaje = "🚌 *Boletos Nacionales desde Arauca*\n\n"
+        mensaje = "🚌 *Boletos Nacionales desde Arauca — COLOMBIA* 🇨🇴\n\n"
         mensaje += "Destinos disponibles:\n\n"
         
         # Mostrar destinos con precios
@@ -360,7 +360,7 @@ Un asesor especializado te contactará en breve para ayudarte con:
 _Un asesor humano te atenderá personalmente._"""
             
         except ValueError:
-            return f"Por favor responde con el número del destino (1-{len(DESTINOS_NACIONALES_DESDE_ARAUCA)}) o escribe *volver* para regresar al menú."
+            return f"Por favor escribe un número del 1 al {len(DESTINOS_NACIONALES_DESDE_ARAUCA)}.\n\nEjemplo: si quieres viajar a Bogotá escribe *19*, si quieres ir a Medellín escribe *29*.\n\nO escribe *volver* para regresar al menú."
     
     def _mostrar_destinos_internacionales(self) -> str:
         """Muestra los destinos internacionales disponibles."""
