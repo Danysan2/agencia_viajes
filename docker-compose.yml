@@ -17,9 +17,10 @@ services:
     restart: unless-stopped
     networks:
       - chatbot_network
-    # NOTA: Asegúrate de crear un archivo .env con tus credenciales
-    # Copia .env.example a .env y configura tus valores
+      - dokploy-network
 
 networks:
+  dokploy-network:
+    external: true
   chatbot_network:
     driver: bridge
