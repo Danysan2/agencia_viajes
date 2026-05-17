@@ -8,8 +8,19 @@ load_dotenv()
 
 # Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-SERVICE_ACCOUNT_FILE = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', 'service_account.json')
-SERVICE_ACCOUNT_PATH = BASE_DIR / SERVICE_ACCOUNT_FILE
+
+# Google Service Account - soporta JSON directo o ruta a archivo
+_service_account_env = os.getenv('GOOGLE_SERVICE_ACCOUNT_FILE', 'service_account.json')
+
+if _service_account_env.strip().startswith('{'):
+    # Es un JSON directo → escribirlo a un archivo temporal
+    _tmp_file = BASE_DIR / 'service_account.json'
+    with open(_tmp_file, 'w') as f:
+        f.write(_service_account_env)
+    SERVICE_ACCOUNT_PATH = _tmp_file
+else:
+    # Es una ruta a archivo
+    SERVICE_ACCOUNT_PATH = BASE_DIR / _service_account_env
 
 # Google Sheets
 GOOGLE_SHEETS_ID = os.getenv('GOOGLE_SHEETS_ID', '1XEk1okxlRuTfCYsNXGSrtDXeYq0_S1FT')
